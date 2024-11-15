@@ -1,132 +1,178 @@
-/**
- * Yeh file global constants aur functions ko define karti hai jo myday Google Sheets add-on ke liye hain.
- */
-
+// Theme and Constants - ye saare colors aur basic settings hai 
 const THEME={
   COLORS: {
-    BG_GRAY: '#f6f8fa',// Background color gray
-    BORDER_GRAY: '#d0d7de',// Border color gray
-    HEADER_BG: '#24292f',// Header background color
-    TASK_BG: '#fff3cd',// Task background color
-    ASSIGNMENT_BG: '#d1ecf1',// Assignment background color
-    NOTES_BG: '#eaf7ea',// Notes background color
-    STATUS_COMPLETED: '#d4edda',// Completed status color
-    STATUS_IN_PROGRESS: '#fff3cd',// In progress status color
-    STATUS_NOT_STARTED: '#f8d7da' // Not started status color
+    BG_GRAY: '#f6f8fa',    // background ke liye light gray
+    BORDER_GRAY: '#d0d7de', // border ke liye thoda dark gray
+    HEADER_BG: '#24292f',   // header ka background ekdum black jaisa
+    TASK_BG: '#fff3cd',     // normal tasks ke liye halka yellow
+    ASSIGNMENT_BG: '#d1ecf1',// assignments ke liye light blue
+    NOTES_BG: '#eaf7ea',    // notes section ke liye mint green types
+    STATUS_COMPLETED: '#d4edda',   // completed waale tasks ke liye green
+    STATUS_IN_PROGRESS: '#fff3cd', // jo abhi chal rahe hai unke liye yellow
+    STATUS_NOT_STARTED: '#f8d7da'   // jo start hi nahi huye unke liye red
   },
-
-
-  STATUSES: ['⭕ Not Started','🟡 In Progress','✅ Completed'] // Status options
+  STATUSES: ['⭕ Not Started','🟡 In Progress','✅ Completed'] // status ke teen options bas
 };
 
-/**
- * Yeh function Google Sheets UI mein ek menu create karta hai.
- */
+// Calendar Settings - Google Calendar ke liye settings
+const CALENDAR_SETTINGS={
+  REMINDER_TIMES: [
+    24 * 60,// ek din pehle reminder
+    60,     // 1 ghanta pehle
+    10       // last 10 minute mein bhi ek reminder
+  ],
+  EVENT_COLORS: {
+
+    TASK: '10',    // normal tasks green color mein dikhenge
+    ASSIGNMENT: '9'  // assignments purple mein,easy identify ke liye
+  }
+};
+
+// bhai calendar access ke liye permission mangne wala function
+function requestCalendarPermission() {
+
+  const calendar=CalendarApp.getDefaultCalendar();
+  Logger.log(calendar.getName());  // ye permission prompt karega
+}
+
+// jab sheet khulegi tab ye menu add hoga - ekdum simple
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('myday') // 'myday' naam ka menu banayega
-    .addItem('Add New Day\'s Schedule','addNewDaySchedule') // Menu mein ek item add karega
-    .addToUi(); // Menu ko UI mein add karega
+    .createMenu('myday')
+    .addItem('Add New Day\'s Schedule','addNewDaySchedule')
+    .addItem('Sync All Events to Calendar','syncAllEventsToCalendar')
+    .addItem('Initialize Calendar Access','requestCalendarPermission')
+    .addToUi();
 }
 
-/**
- * Yeh function ek naye din ka schedule sheet mein add karta hai.
- */
+// OAuth token nikalne ke liye - authentication ke liye jaruri hai ye
+function getOAuthToken() {
+
+  return ScriptApp.getOAuthToken();
+}
+
+// Check if event already exists for that day
+function eventExistsForDay(taskTitle,deadline,isAssignment=false) {
+  try {
 
 
+    const calendar=CalendarApp.getDefaultCalendar();
+    const events=calendar.getEventsForDay(new Date(deadline));
+    const searchTitle=`${isAssignment ? '📚 Assignment' : '✔️ Task'}: ${taskTitle}`;
+    
+    return events.some(event=> event.getTitle()===searchTitle);
+  } catch (error) {
 
-function addNewDaySchedule() {
-  const sheet=SpreadsheetApp.getActiveSheet(); // Active sheet ko get karega
-  const today=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),"dd/MM/yyyy"); // Aaj ki date ko format karega
 
-  if (sheet.getLastRow()===0) {
-    setupSheet(sheet); // Agar sheet empty hai to setupSheet function call karega
+    console.error('error in event:',error);
+    return false;
   }
-
-  const startRow=sheet.getLastRow()+1; // Last row ke baad se start karega
-
-  // Date header ko styling ke sath add karega
-  const dateRange=sheet.getRange(startRow,1,1,8); // 8 columns ko span karega
-  dateRange.merge()
-    .setValue(`📅 ${today}`) // Aaj ki date set karega
-    .setBackground(THEME.COLORS.BORDER_GRAY) // Background color set karega
-    .setFontSize(12) // Font size set karega
-    .setFontWeight('bold') // Font weight bold karega
-    .setHorizontalAlignment('center') // Text ko center align karega
-    .setVerticalAlignment('middle'); // Text ko vertically middle align karega
-
-
-
-  // Tasks aur Assignments columns ke headers set karega
-  const headers=[
-    ['S. No.','Tasks','Deadline','Status','S. No.','Assignments','Deadline','Status']
-  ];
-
-
-  sheet.getRange(startRow+1,1,1,8).setValues(headers)
-    .setBackground(THEME.COLORS.BG_GRAY) // Background color set karega
-    .setFontWeight('bold') // Font weight bold karega
-    .setHorizontalAlignment('center') // Text ko center align karega
-    .setVerticalAlignment('middle'); // Text ko vertically middle align karega
-
-  // Tasks aur assignments ke rows add karega
-  const rows=[
-    [1,'','',THEME.STATUSES[0],1,'','',THEME.STATUSES[0]],
-    [2,'','',THEME.STATUSES[0],2,'','',THEME.STATUSES[0]],
-    [3,'','',THEME.STATUSES[0],3,'','',THEME.STATUSES[0]],
-    [4,'','',THEME.STATUSES[0],4,'','',THEME.STATUSES[0]],
-    [5,'','',THEME.STATUSES[0],5,'','',THEME.STATUSES[0]]
-  ];
-  sheet.getRange(startRow+2,1,rows.length,8).setValues(rows);
-
-  // Borders aur cell sizes ko style karega
-  const taskRange=sheet.getRange(startRow+1,1,rows.length+1,8);
-  taskRange.setBorder(true,true,true,true,true,true);
-  
-  // Puri table mein text aur dates ko center align karega
-  sheet.getRange(startRow+1,1,rows.length+1,8).setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-
-  // Status columns ke liye data validations add karega (Tasks aur Assignments dono ke liye)
-  const taskStatusRange=sheet.getRange(startRow+2,4,rows.length,1);
-  const assignmentStatusRange=sheet.getRange(startRow+2,8,rows.length,1);
-  const statusValidation=SpreadsheetApp.newDataValidation().requireValueInList(THEME.STATUSES).build();
-  
-  taskStatusRange.setDataValidation(statusValidation);
-  assignmentStatusRange.setDataValidation(statusValidation);
-
-  // Deadline columns ke liye data validations add karega (Tasks aur Assignments dono ke liye)
-  const taskDeadlineRange=sheet.getRange(startRow+2,3,rows.length,1);
-  const assignmentDeadlineRange=sheet.getRange(startRow+2,7,rows.length,1);
-  const dateValidation=SpreadsheetApp.newDataValidation().requireDate().build();
-  
-  taskDeadlineRange.setDataValidation(dateValidation);
-  assignmentDeadlineRange.setDataValidation(dateValidation);
-
-  // Deadline columns ko date format mein set karega
-  const dateFormat="dd/MM/yyyy";
-  taskDeadlineRange.setNumberFormat(dateFormat);
-  assignmentDeadlineRange.setNumberFormat(dateFormat);
-
-  // Status columns ke liye conditional formatting add karega
-  addConditionalFormatting(sheet,startRow+2,rows.length);
-
-  // Notes section add karega
-  const notesRow=startRow+rows.length+2;
-  const notesRange=sheet.getRange(notesRow,1,1,8);
-  notesRange.merge()
-    .setValue('📝 Notes:')
-    .setBackground(THEME.COLORS.NOTES_BG)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
 }
 
-/**
- * Sheet ko title aur column widths ke sath setup karega.
- */
+// Modified createCalendarEvent function with duplicate check
+function createCalendarEvent(taskTitle,deadline,isAssignment=false) {
+  try {
+
+    // Pehle check karo ki event already exists to nahi
+    if (eventExistsForDay(taskTitle,deadline,isAssignment)) {
+      throw new Error('Event already exists for this day');
+    }
+
+    const calendar=CalendarApp.getDefaultCalendar();
+    const eventTitle=`${isAssignment ? '📚 Assignment' : '✔️ Task'}: ${taskTitle}`;
+    
+    const event=calendar.createAllDayEvent(
+      eventTitle,
+      new Date(deadline)
+    );
+    
+    CALENDAR_SETTINGS.REMINDER_TIMES.forEach(time=> {
+      event.addPopupReminder(time);
+      event.addEmailReminder(time);
+    });
+    
+    event.setColor(isAssignment ? 
+      CALENDAR_SETTINGS.EVENT_COLORS.ASSIGNMENT : 
+      CALENDAR_SETTINGS.EVENT_COLORS.TASK
+    );
+    
+    return event.getId();
+  } catch (error) {
+    console.error('Error occured while syncing:',error);
+    throw error;
+  }
+}
+
+// koi event delete karna ho to ye function use karo
+function removeCalendarEvent(date,taskTitle) {
+
+
+  const calendar=CalendarApp.getDefaultCalendar();
+  const events=calendar.getEventsForDay(new Date(date));
+  
+  // jo title match karega wo event delete ho jayega
+  events.forEach(event=> {
+    if (event.getTitle().includes(taskTitle)) {
+
+      event.deleteEvent();
+    }
+  });
+}
+
+// Modified syncAllEventsToCalendar function with better error handling
+function syncAllEventsToCalendar() {
+  const sheet=SpreadsheetApp.getActiveSheet();
+  const data=sheet.getDataRange().getValues();
+
+  let currentRow=2; // header ke baad se start karo
+  
+  data.forEach((row,index)=> {
+    // pehli row aur khaali rows ko skip karo
+    if (index < 1 || !row[0]) return;
+    
+    // tasks ko process karo
+    if (row[2]) { // agar deadline set hai to
+      try {
+        if (!eventExistsForDay(row[1],row[2],false)) {
+
+          createCalendarEvent(row[1],row[2],false);
+          sheet.getRange(currentRow,3).setNote('📅 Added in Calendar ');
+        } else {
+
+          sheet.getRange(currentRow,3).setNote('ℹ️ Event already exists');
+        }
+      } catch (error) {
+        sheet.getRange(currentRow,3).setNote('❌ Not Synced: '+error.message);
+      }
+    }
+    
+    // assignments ko process karo
+    if (row[6]) { // agar deadline set hai to
+      try {
+
+        if (!eventExistsForDay(row[5],row[6],true)) {
+
+          createCalendarEvent(row[5],row[6],true);
+          sheet.getRange(currentRow,7).setNote('📅 Added in Calendar');
+        } else {
+
+          sheet.getRange(currentRow,7).setNote('ℹ️ Event already exists');
+        }
+      } catch (error) {
+
+        sheet.getRange(currentRow,7).setNote('❌ Not Synced: '+error.message);
+      }
+    }
+    
+    currentRow++;
+  });
+}
+
+// sheet ko setup karne ka function - ekdum basic structure banayega
 function setupSheet(sheet) {
-  // Title ko distinctive header style ke sath set karega
+
+
+  // sabse upar title lagao,ekdum mast style ke saath
   const titleRange=sheet.getRange(1,1,1,8);
   titleRange.merge()
     .setValue('🗓️ myday 🗓️')
@@ -137,38 +183,41 @@ function setupSheet(sheet) {
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
 
-  // Column widths ko readability ke liye set karega
-  sheet.setColumnWidths(1,8,150);
-  sheet.setColumnWidth(1,50);  // Serial No.
-  sheet.setColumnWidth(2,200); // Tasks
-  sheet.setColumnWidth(3,100); // Deadline
-  sheet.setColumnWidth(4,120); // Status
-  sheet.setColumnWidth(5,50);  // Serial No.
-  sheet.setColumnWidth(6,200); // Assignments
-  sheet.setColumnWidth(7,100); // Deadline
-  sheet.setColumnWidth(8,120); // Status
+  // columns ki width set karo - sab kuch readable rakho
+  sheet.setColumnWidth(1,50);   // S.No. ke liye choti si
+  sheet.setColumnWidth(2,200);  // Tasks ke liye badi
+  sheet.setColumnWidth(3,100);  // Deadline medium
+  sheet.setColumnWidth(4,120);  // Status ke liye thodi badi
+  sheet.setColumnWidth(5,50);   // Assignments ka S.No.
+  sheet.setColumnWidth(6,200);  // Assignment description ke liye badi
+  sheet.setColumnWidth(7,100);  // Assignment deadline
+  sheet.setColumnWidth(8,120);  // Assignment status
 }
 
-/**
- * Sheet mein conditional formatting add karega.
- */
+// conditional formatting add karne ka system - status ke hisaab se color change hoga
 function addConditionalFormatting(sheet,startRow,numRows) {
   const rules=[];
   
-  // Status columns (column 4 aur 8) ke liye rules add karega
+  // Status columns ke liye formatting rules
   [4,8].forEach(col=> {
     rules.push(
+      // Complete ho gaya to green
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextEqualTo('✅ Completed')
-
-
         .setBackground(THEME.COLORS.STATUS_COMPLETED)
         .setFontColor('#155724')
         .setRanges([sheet.getRange(startRow,col,numRows)])
         .build(),
-        
-
-
+      
+      // In progress hai to yellow
+      SpreadsheetApp.newConditionalFormatRule()
+        .whenTextEqualTo('🟡 In Progress')
+        .setBackground(THEME.COLORS.STATUS_IN_PROGRESS)
+        .setFontColor('#856404')
+        .setRanges([sheet.getRange(startRow,col,numRows)])
+        .build(),
+      
+      // Start nahi hua to red
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextEqualTo('⭕ Not Started')
         .setBackground(THEME.COLORS.STATUS_NOT_STARTED)
@@ -181,24 +230,148 @@ function addConditionalFormatting(sheet,startRow,numRows) {
   sheet.setConditionalFormatRules(sheet.getConditionalFormatRules().concat(rules));
 }
 
-/**
- * Sheet mein onEdit event ko handle karega.
- */
+// naye din ka schedule add karne ka system
+function addNewDaySchedule() {
+  const sheet=SpreadsheetApp.getActiveSheet();
+  const today=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),"dd/MM/yyyy");
+
+  // agar sheet bilkul khaali hai to pehle setup karo
+  if (sheet.getLastRow()===0) {
+    setupSheet(sheet);
+  }
+
+  const startRow=sheet.getLastRow()+1;
+
+  // today's date's header
+  const dateRange=sheet.getRange(startRow,1,1,8);
+  dateRange.merge()
+    .setValue(`📅 ${today}`)
+    .setBackground(THEME.COLORS.BORDER_GRAY)
+    .setFontSize(12)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // columns ke headers
+  const headers=[
+    ['S. No.','Tasks','Deadline','Status','S. No.','Assignments','Deadline','Status']
+  ];
+  sheet.getRange(startRow+1,1,1,8).setValues(headers)
+    .setBackground(THEME.COLORS.BG_GRAY)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // 5 blank rows  - by default
+  const rows=Array(5).fill().map((_,i)=> [
+    i+1,'','',THEME.STATUSES[0],
+    i+1,'','',THEME.STATUSES[0]
+  ]);
+  
+  const dataRange=sheet.getRange(startRow+2,1,rows.length,8);
+  dataRange.setValues(rows);
+
+  // cells ka thoda styling 
+  const taskRange=sheet.getRange(startRow+1,1,rows.length+1,8);
+  taskRange.setBorder(true,true,true,true,true,true)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // status ke liye dropdown validation
+  const statusValidation=SpreadsheetApp.newDataValidation()
+    .requireValueInList(THEME.STATUSES)
+    .build();
+  
+  [4,8].forEach(col=> {
+
+    sheet.getRange(startRow+2,col,rows.length,1)
+      .setDataValidation(statusValidation);
+  });
+
+  // date columns ke liye validation
+  const dateValidation=SpreadsheetApp.newDataValidation()
+    .requireDate()
+    .build();
+  
+  [3,7].forEach(col=> {
+    const deadlineRange=sheet.getRange(startRow+2,col,rows.length,1);
+    deadlineRange.setDataValidation(dateValidation)
+      .setNumberFormat("dd/MM/yyyy");
+  });
+
+  // conditional formatting bhi add karo
+  addConditionalFormatting(sheet,startRow+2,rows.length);
+
+  // last mein notes ka section
+  const notesRow=startRow+rows.length+2;
+  sheet.getRange(notesRow,1,1,8).merge()
+    .setValue('📝 Notes:')
+    .setBackground(THEME.COLORS.NOTES_BG)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+}
+
+// jab kuch edit ho tab ye function chalega
 function onEdit(e) {
   const sheet=e.source.getActiveSheet();
   const range=e.range;
-  const nextRow=range.getRow()+1;
-
-
+  const row=range.getRow();
   const col=range.getColumn();
+  const value=range.getValue();
   
-  // Sirf task aur assignment description columns (columns 2 aur 6) ke liye proceed karega
-  if ((col===2 || col===6) && range.getValue() !=='') {
+  // task ya assignment add karne ke baad automatically next cell pe focus
+  if ((col===2 || col===6) && value !=='') {
+    const nextCell=sheet.getRange(row+1,col);
 
-    // Agar next row empty hai to usko activate karega
-    const nextCell=sheet.getRange(nextRow,col);
     if (nextCell.getValue()==='') {
       nextCell.activate();
+    }
+  }
+  
+  // deadline add karne pe calendar mein event add ho jayega
+  if ((col===3 || col===7) && value !=='') {
+    try {
+      const isAssignment=(col===7);
+      const taskCol=isAssignment ? 6 : 2;
+      const taskTitle=sheet.getRange(row,taskCol).getValue();
+      
+      if (taskTitle) {
+        if (!eventExistsForDay(taskTitle,value,isAssignment)) {
+
+          createCalendarEvent(taskTitle,value,isAssignment);
+          
+          // status update karo agar jarurat hai to
+          const statusCell=sheet.getRange(row,col+1);
+          if (statusCell.getValue()===THEME.STATUSES[0]) {
+            statusCell.setValue(THEME.STATUSES[1]);
+          }
+          
+          range.setNote('📅 Added in Calendar');
+        } else {
+          range.setNote('ℹ️ Event already exists');
+        }
+      } else {
+
+        range.setNote('⚠️ Add title for task');
+      }
+    } catch (error) {
+
+      range.setNote('❌ Error Occured: '+error.message);
+    }
+  }
+  
+  // deadline hatane pe calendar se bhi event hat jayega
+  if ((col===3 || col===7) && e.oldValue && !value) {
+    try {
+
+      const taskCol=(col===7) ? 6 : 2;
+      const taskTitle=sheet.getRange(row,taskCol).getValue();
+      removeCalendarEvent(e.oldValue,taskTitle);
+      range.setNote('Deleted from Calender');
+    } catch (error) {
+
+      range.setNote('❌ Error Occured: '+error.message);
     }
   }
 }
