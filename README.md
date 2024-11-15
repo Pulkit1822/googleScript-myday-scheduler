@@ -48,7 +48,46 @@ Unlike other task management tools, MyDay is fully integrated with Google Sheets
 5. Open the Google Sheet where you installed the script.
 6. Click on the `myday` menu.
 7. Select `Add New Day's Schedule` to create a new schedule for the day.
+8. Fill in your tasks and assignments, set deadlines, and update their status as needed.
+9. To sync events with Google Calendar, select `Sync All Events to Calendar` from the `myday` menu.
+10. To initialize calendar access, select `Initialize Calendar Access` from the `myday` menu.
 
+### Note
+
+When running the script for the first time, you will be prompted to grant necessary permissions for the script to access Google Calendar and Google Sheets. Make sure to review and grant these permissions to ensure the script functions correctly.
+
+### Adding the `appsscript.json` File
+
+1. In the Apps Script editor, click on the `+` button next to the `Files` section.
+2. Select `Script Properties` and then click on `appsscript.json`.
+3. Copy the contents of the `appsscript.json` file provided in this repository.
+4. Paste the contents into the `appsscript.json` file in the Apps Script editor.
+5. Save the project.
+
+### Adding the Calendar Service
+
+1. In the Apps Script editor, click on `Services` (+ icon) in the left sidebar.
+2. Click `Add a service` (+ button).
+3. Find and select `Google Calendar API`.
+4. Click `Add`.
+
+### Clearing Previous Authorization Cache and Reviewing Permissions
+
+1. In the Apps Script editor, click on `View` → `Show project manifest`.
+2. If `appsscript.json` exists, replace its content with the code above.
+3. If it doesn't exist, create it by clicking the `+` next to Files and choosing `Script`, name it `appsscript.json`.
+4. Click `Review Permissions` in the editor.
+5. At the top right, click on your Google account icon.
+6. Click `Manage Account`.
+7. Go to `Security`.
+8. Scroll to `Third-party apps with account access`.
+9. Remove the previous authorization for this script.
+
+### Testing the Integration
+
+1. Go back to your spreadsheet.
+2. Refresh the page.
+3. Try adding a new task with a deadline.
 
 ## Feedback 
 
